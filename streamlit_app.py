@@ -5,77 +5,71 @@ import plotly.express as px
 st.set_page_config(page_title="🏘️ Huizenmarkt Dashboard", layout="wide")
 st.title("🏘️ Huizenmarkt Dashboard")
 
-# ✅ Vervang deze met de correcte RAW GitHub link
+# CSV vanaf GitHub
 csv_url = "https://raw.githubusercontent.com/AbdullahOzisik/huizenmarkt-data-platform/main/woningdata_per_gemeente.csv"
 
 try:
     df = pd.read_csv(csv_url)
     st.success("✅ Data succesvol geladen vanaf GitHub")
 
-    if "gemeente" not in df.columns:
-        st.error("❌ Kolom 'gemeente' niet gevonden in de dataset.")
-        st.stop()
-
-    # --- FILTER EN VERGELIJKING ---
-    st.header("📍 Vergelijk Gemeenten")
-    col1, col2 = st.columns(2)
+    # Selecteer twee gemeenten om te vergelijken
     gemeenten = sorted(df["gemeente"].dropna().unique())
-    g1 = col1.selectbox("Gemeente 1", gemeenten)
-    g2 = col2.selectbox("Gemeente 2", gemeenten, index=1)
+    col1, col2 = st.columns(2)
+    g1 = col1.selectbox("📍 Selecteer gemeente 1", gemeenten, index=gemeenten.index("Amsterdam") if "Amsterdam" in gemeenten else 0)
+    g2 = col2.selectbox("📍 Selecteer gemeente 2", gemeenten, index=gemeenten.index("Rotterdam") if "Rotterdam" in gemeenten else 1)
 
-    df_g1 = df[df["gemeente"] == g1]
-    df_g2 = df[df["gemeente"] == g2]
+    data_g1 = df[df["gemeente"] == g1].iloc[0]
+    data_g2 = df[df["gemeente"] == g2].iloc[0]
 
-    # --- METRIEKEN VERGELIJKING ---
-    st.subheader(f"📊 Vergelijking: {g1} vs {g2}")
+    # ➕ Vergelijkingskaarten
+    st.subheader("📊 Vergelijking Statistieken")
     col1, col2, col3 = st.columns(3)
-
-    def get_val(col, gdf):
-        return gdf[col].values[0] if col in gdf.columns else None
-
-    col1.metric("Gemiddeld Inkomen (€)", f"{get_val('gemiddeld_inkomen', df_g1):,.0f}", f"{get_val('gemiddeld_inkomen', df_g1) - get_val('gemiddeld_inkomen', df_g2):,.0f}")
-    col2.metric("WOZ-waarde (€)", f"{get_val('gemiddelde_woz', df_g1):,.0f}", f"{get_val('gemiddelde_woz', df_g1) - get_val('gemiddelde_woz', df_g2):,.0f}")
-    col3.metric("Totaal Inwoners", f"{get_val('totaal_inwoners', df_g1):,.0f}")
+    col1.metric("Gemiddeld Inkomen", f"€{data_g1['gemiddeld_inkomen']:,.0f}", f"{data_g1['gemiddeld_inkomen'] - data_g2['gemiddeld_inkomen']:,.0f} verschil" if g1 != g2 else "")
+    col2.metric("Gemiddelde WOZ", f"€{data_g1['gemiddelde_woz']:,.0f}", f"{data_g1['gemiddelde_woz'] - data_g2['gemiddelde_woz']:,.0f} verschil" if g1 != g2 else "")
+    col3.metric("Totaal Inwoners", f"{int(data_g1['totaal_inwoners']):,}", f"{int(data_g1['totaal_inwoners'] - data_g2['totaal_inwoners']):,} verschil" if g1 != g2 else "")
 
     st.markdown("---")
 
-    # --- HISTOGRAMMEN ---
-    st.subheader("📈 WOZ-waarde & Inkomen Histogrammen")
-
+    # ➗ Grafieken naast elkaar
+    st.subheader("📈 Inkomens- en WOZ-verdeling")
     col1, col2 = st.columns(2)
-    with col1:
-        st.plotly_chart(
-            px.histogram(df, x="gemiddelde_woz", nbins=30, title="Histogram: WOZ-waarde"),
-            use_container_width=True
-        )
-    with col2:
-        st.plotly_chart(
-            px.histogram(df, x="gemiddeld_inkomen", nbins=30, title="Histogram: Gemiddeld Inkomen"),
-            use_container_width=True
-        )
 
-    # --- KAART ---
+    with col1:
+        fig_inkomen = px.histogram(df, x="gemiddeld_inkomen", nbins=30, title="📊 Inkomensverdeling", color_discrete_sequence=["#1f77b4"])
+        fig_inkomen.add_vline(x=data_g1['gemiddeld_inkomen'], line_dash="dash", line_color="red", annotation_text=g1, annotation_position="top right")
+        fig_inkomen.add_vline(x=data_g2['gemiddeld_inkomen'], line_dash="dash", line_color="green", annotation_text=g2, annotation_position="top left")
+        st.plotly_chart(fig_inkomen, use_container_width=True)
+
+    with col2:
+        fig_woz = px.histogram(df, x="gemiddelde_woz", nbins=30, title="🏠 WOZ-waardeverdeling", color_discrete_sequence=["#ff7f0e"])
+        fig_woz.add_vline(x=data_g1['gemiddelde_woz'], line_dash="dash", line_color="red", annotation_text=g1, annotation_position="top right")
+        fig_woz.add_vline(x=data_g2['gemiddelde_woz'], line_dash="dash", line_color="green", annotation_text=g2, annotation_position="top left")
+        st.plotly_chart(fig_woz, use_container_width=True)
+
+    st.markdown("---")
+
+    # ➕ Bonus: kaartje met WOZ per gemeente (rood = duur, blauw = goedkoop)
+    st.subheader("🗺️ WOZ-waarde per gemeente")
     if "latitude" in df.columns and "longitude" in df.columns:
-        st.subheader("🗺️ Kaart: WOZ-waarde per Gemeente")
-        fig_map = px.scatter_mapbox(
+        map_fig = px.scatter_mapbox(
             df,
             lat="latitude",
             lon="longitude",
             color="gemiddelde_woz",
-            size="gemiddelde_woz",
             hover_name="gemeente",
+            size="gemiddelde_woz",
             color_continuous_scale="RdBu_r",
-            size_max=20,
-            zoom=6,
             mapbox_style="carto-positron",
-            title="WOZ-waarde (blauw = goedkoper, rood = duurder)"
+            zoom=6,
+            title="Kaart: WOZ-waarde per gemeente"
         )
-        st.plotly_chart(fig_map, use_container_width=True)
+        st.plotly_chart(map_fig, use_container_width=True)
+    else:
+        st.info("ℹ️ Voeg latitude en longitude toe aan je CSV om de kaart te activeren.")
 
-    # --- DOWNLOAD ---
-    st.subheader("📥 Download")
+    # Downloadknop
     st.download_button(
-        label="Download CSV",
+        label="📥 Download huidige data als CSV",
         data=df.to_csv(index=False).encode("utf-8"),
         file_name="woningdata_per_gemeente.csv",
         mime="text/csv"
