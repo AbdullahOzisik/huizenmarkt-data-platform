@@ -5,7 +5,7 @@ st.set_page_config(page_title="🏘️ Huizenmarkt Dashboard", layout="wide")
 st.title("🏘️ Huizenmarkt Dashboard")
 
 # Gebruik de RAW link van GitHub, niet de gewone weergavelink
-csv_url = "https://raw.githubusercontent.com/AbdullahOzisik/huizenmarkt/main/woningdata_per_gemeente.csv"
+csv_url = "https://raw.githubusercontent.com/AbdullahOzisik/huizenmarkt-data-platform/main/woningdata_per_gemeente.csv"
 
 try:
     # Laad CSV vanaf GitHub
