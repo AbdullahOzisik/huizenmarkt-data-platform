@@ -13,11 +13,11 @@ try:
     st.success("✅ Data succesvol geladen vanaf GitHub")
 
     # Gemeente filter
-    gemeenten = sorted(df["GEMEENTE"].dropna().unique())
+    gemeenten = sorted(df["gemeente"].dropna().unique())
     gekozen = st.selectbox("Selecteer een gemeente", ["Alle"] + gemeenten)
 
     if gekozen != "Alle":
-        df = df[df["GEMEENTE"] == gekozen]
+        df = df[df["gemeente"] == gekozen]
 
     # Toon data
     st.dataframe(df, use_container_width=True)
